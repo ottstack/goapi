@@ -6,31 +6,38 @@ import (
 	"fmt"
 )
 
-var callerImp caller = &unimpCaller{}
+var clientCaller clientInterface = &unimpClient{}
 
-func SetCaller(c caller) {
-	callerImp = c
+func SetClient(c clientInterface) {
+	clientCaller = c
 }
 
-type caller interface {
-	Call(ctx context.Context, method, path string, req interface{}, rsp interface{}) error
+type clientInterface interface {
+	Call(ctx context.Context, path string, req interface{}, rsp interface{}) error
 }
-type unimpCaller struct{}
 
-func (s *unimpCaller) Call(ctx context.Context, method, path string, req interface{}, rsp interface{}) error {
+type unimpClient struct{}
+
+func (s *unimpClient) Call(ctx context.Context, path string, req interface{}, rsp interface{}) error {
 	return fmt.Errorf("missing caller setting")
 }
 
-type SayHelloRequest struct {
+type HelloServiceSayHelloRequest struct {
 	Name string `json:"name"`
 }
 
-type SayHelloResponse struct {
+type HelloServiceSayHelloResponse struct {
 	Reply string `json:"reply"`
 }
 
-func SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
-	rsp := &SayHelloResponse{}
-	err := callerImp.Call(ctx, "GET", "/api/hello", req, rsp)
+type helloService struct{}
+
+func HelloService() *helloService {
+	return &helloService{}
+}
+
+func (s *helloService) SayHello(ctx context.Context, req *HelloServiceSayHelloRequest) (*HelloServiceSayHelloResponse, error) {
+	rsp := &HelloServiceSayHelloResponse{}
+	err := clientCaller.Call(ctx, "/api/HelloService/SayHello", req, rsp)
 	return rsp, err
 }

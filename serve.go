@@ -1,10 +1,12 @@
 package goapi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 
@@ -44,6 +46,7 @@ type methodInfo struct {
 	methodValue reflect.Value
 	methodType  reflect.Type
 	methodName  string
+	serviceName string
 
 	tags    []string
 	summary string
@@ -82,18 +85,19 @@ func NewServer() *Server {
 	return sv
 }
 
-func (s *Server) HandleRaw(path string, function func(*fasthttp.RequestCtx)) error {
+func (s *Server) RegisterHTTP(path string, function func(*fasthttp.RequestCtx)) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 	if _, ok := s.methods[path]; ok {
-		return errors.Errorf("function %s already registered", path)
+		err := errors.Errorf("%s already registered for function", path)
+		s.checkError(err)
 	}
 	if _, ok := s.rawHandler[path]; ok {
-		return errors.Errorf("%s already registered for http handler", path)
+		err := errors.Errorf("%s already registered for http handler", path)
+		s.checkError(err)
 	}
 	s.rawHandler[path] = function
-	return nil
 }
 
 func (s *Server) Use(m middleware.Middleware) *Server {
@@ -101,10 +105,30 @@ func (s *Server) Use(m middleware.Middleware) *Server {
 	return s
 }
 
-func (s *Server) Serve(services []interface{}) error {
+func (s *Server) RegisterService(services ...interface{}) {
 	if err := s.parse(services); err != nil {
-		return err
+		s.checkError(err)
 	}
+}
+
+func (s *Server) checkError(err error) {
+	if err == nil {
+		return
+	}
+	if e, ok := err.(*errors.Error); ok {
+		buf := bytes.Buffer{}
+		buf.WriteString("exit error:" + err.Error() + "\n")
+		for _, frame := range e.StackFrames()[:4] {
+			buf.WriteString(frame.String())
+		}
+		fmt.Println(buf.String())
+		os.Exit(1)
+	} else {
+		panic(err)
+	}
+}
+
+func (s *Server) Serve() error {
 	defer s.cancelFunc()
 	// maxprocs
 	maxprocs.Set(maxprocs.Logger(func(s string, args ...interface{}) {
@@ -128,16 +152,17 @@ func (s *Server) parse(services []interface{}) error {
 		if svValue.Kind() != reflect.Ptr || svValue.Elem().Kind() != reflect.Struct {
 			return errors.Errorf("service paramter %s should be pointer to struct", svType)
 		}
+		svName := svType.Elem().Name()
 		for i := 0; i < svType.NumMethod(); i++ {
 			m := svType.Method(i)
-			path := s.swaggerPath + m.Name
-
+			path := s.swaggerPath + svName + "/" + m.Name
 			info := &methodInfo{
 				path:        path,
-				tags:        []string{svType.Elem().Name()},
+				tags:        []string{svName},
 				methodType:  m.Type,
 				methodValue: svValue.MethodByName(m.Name),
 				methodName:  m.Name,
+				serviceName: svName,
 			}
 			if err := parseMethods(info); err != nil {
 				return err

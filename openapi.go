@@ -46,13 +46,13 @@ func newOpenapi(path string) *openapi {
 func (o *openapi) addMethod(info *methodInfo) {
 	rspContent := openapi3.Content{"application/json": {
 		Schema: &openapi3.SchemaRef{
-			Ref: schemaPrefix + info.methodName + info.rspType.Name(),
+			Ref: schemaPrefix + info.serviceName + info.rspType.Name(),
 		},
 	},
 	}
 
 	oper := &openapi3.Operation{
-		OperationID: info.methodName,
+		OperationID: info.serviceName + info.methodName,
 		Tags:        info.tags,
 		Summary:     info.summary,
 		Responses: openapi3.Responses{
@@ -78,7 +78,7 @@ func (o *openapi) addMethod(info *methodInfo) {
 		Value: &openapi3.RequestBody{
 			Content: openapi3.Content{"application/json": {
 				Schema: &openapi3.SchemaRef{
-					Ref: schemaPrefix + info.methodName + info.reqType.Name(),
+					Ref: schemaPrefix + info.serviceName + info.reqType.Name(),
 				},
 			},
 			}},
@@ -88,8 +88,8 @@ func (o *openapi) addMethod(info *methodInfo) {
 		o.model.Paths[info.path] = &openapi3.PathItem{}
 	}
 	o.model.Paths[info.path].Post = oper
-	o.parseType(info.methodName, info.reqType)
-	o.parseType(info.methodName, info.rspType)
+	o.parseType(info.serviceName, info.reqType)
+	o.parseType(info.serviceName, info.rspType)
 }
 
 func (o *openapi) checkSchemaExists(name string, st reflect.Type) bool {
