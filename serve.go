@@ -214,9 +214,26 @@ func (s *Server) serve(fastReq *fasthttp.RequestCtx) {
 		}
 	}
 
+	var ctx context.Context = fastReq
 	hd, ok := s.rawHandler[path]
 	if ok {
-		hd(fastReq)
+		realMethod := func(ctx context.Context, req, rsp interface{}) error {
+			hd(fastReq)
+			return nil
+		}
+		// Middleware
+		for i := range s.middlewares {
+			mware := s.middlewares[len(s.middlewares)-i-1]
+			realMethod = func(mm middleware.MethodFunc) middleware.MethodFunc {
+				return func(ctx context.Context, req, rsp interface{}) error {
+					return mware(ctx, fastReq, mm, req, rsp)
+				}
+			}(realMethod)
+		}
+		if err := realMethod(ctx, nil, nil); err != nil {
+			writeErrResponse(fastReq, err)
+			return
+		}
 		return
 	}
 
@@ -240,8 +257,6 @@ func (s *Server) serve(fastReq *fasthttp.RequestCtx) {
 				return
 			}
 		}
-
-		ctx := context.Background()
 
 		// Middleware
 		for i := range s.middlewares {

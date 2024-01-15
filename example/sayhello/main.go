@@ -48,11 +48,11 @@ func main() {
 	srv := goapi.NewServer()
 	srv.Use(middleware.Recover).Use(middleware.Validator)
 
-	// curl '127.0.0.1:9001/api/HelloService/SayHello' -d '{"name": "alice"}'
-	// websocket: 127.0.0.1:9001/api/HelloService/StreamHello
+	// curl '127.0.0.1:8081/api/HelloService/SayHello' -d '{"name": "alice"}'
+	// websocket: 127.0.0.1:8081/api/HelloService/StreamHello
 	srv.RegisterService(&HelloService{})
 
-	// origin http: curl '127.0.0.1:9001/api/hello/2'
+	// origin http: curl '127.0.0.1:8081/api/hello/2'
 	srv.RegisterHTTP("/api/hello/2", func(rc *fasthttp.RequestCtx) {
 		rc.Response.BodyWriter().Write([]byte("HELLO FAST HTTP"))
 	})
